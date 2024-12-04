@@ -111,9 +111,9 @@ if __name__ == "__main__":
 
     # User inputs
     universe_options = {
-        'Tech Giants': ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'ADBE', 'INTC', 'CSCO'],
-        'Finance Leaders': ['JPM', 'BAC', 'WFC', 'C', 'GS', 'MS', 'AXP', 'BLK', 'SCHW', 'USB'],
-        'Healthcare Majors': ['JNJ', 'PFE', 'UNH', 'MRK', 'ABBV', 'ABT', 'TMO', 'MDT', 'DHR', 'BMY'],
+        'Tech Giants': ['AAPL - Apple', 'MSFT - Microsoft', 'GOOGL - Alphabet', 'AMZN - Amazon', 'META - Meta Platforms', 'TSLA - Tesla', 'NVDA - NVIDIA', 'ADBE - Adobe', 'INTC - Intel', 'CSCO - Cisco'],
+        'Finance Leaders': ['JPM - JPMorgan Chase', 'BAC - Bank of America', 'WFC - Wells Fargo', 'C - Citigroup', 'GS - Goldman Sachs', 'MS - Morgan Stanley', 'AXP - American Express', 'BLK - BlackRock', 'SCHW - Charles Schwab', 'USB - U.S. Bancorp'],
+        'Healthcare Majors': ['JNJ - Johnson & Johnson', 'PFE - Pfizer', 'UNH - UnitedHealth', 'MRK - Merck', 'ABBV - AbbVie', 'ABT - Abbott', 'TMO - Thermo Fisher Scientific', 'MDT - Medtronic', 'DHR - Danaher', 'BMY - Bristol-Myers Squibb'],
         'Custom': []
     }
 
@@ -141,6 +141,26 @@ if __name__ == "__main__":
             st.error("Please select at least one asset.")
             st.stop()
 
+    # Display selected assets in 'My Portfolio'
+    my_portfolio = st.multiselect(
+        "My Portfolio:",
+        options=ticker_list,
+        default=ticker_list,
+        help="These are the assets you have selected for your portfolio."
+    )
+
+    # Add recommend assets button under 'My Portfolio'
+    recommend_button = st.button("Recommend Assets")
+
+    if recommend_button:
+        st.write("Based on your selected assets, a balanced and diversified portfolio could include a mix of assets from different sectors to minimize risk while maximizing potential gains.")
+        if universe_choice == 'Tech Giants':
+            st.write("Consider adding assets from Finance Leaders or Healthcare Majors to diversify your tech-heavy portfolio.")
+        elif universe_choice == 'Finance Leaders':
+            st.write("Consider adding assets from Tech Giants or Healthcare Majors to balance financial sector exposure.")
+        elif universe_choice == 'Healthcare Majors':
+            st.write("Consider adding assets from Tech Giants or Finance Leaders to create a more well-rounded portfolio.")
+
     start_date = st.date_input("Start date", value=pd.to_datetime("2018-01-01"))
     end_date = st.date_input("End date", value=pd.to_datetime("2023-12-31"))
     risk_free_rate = (
@@ -155,7 +175,7 @@ if __name__ == "__main__":
     num_assets_to_select = st.number_input(
         "Number of assets to include in the portfolio:",
         min_value=1,
-        max_value=len(ticker_list),
+        max_value=len(my_portfolio),
         value=3,
         step=1
     )
@@ -164,17 +184,6 @@ if __name__ == "__main__":
         "Select your strategy:",
         ("Risk-Free Safe Approach", "Profit-Aggressive Approach")
     )
-
-    recommend_button = st.button("Recommend Assets")
-
-    if recommend_button:
-        st.write("Based on your selected assets, a balanced and diversified portfolio could include a mix of assets from different sectors to minimize risk while maximizing potential gains.")
-        if universe_choice == 'Tech Giants':
-            st.write("Consider adding assets from Finance Leaders or Healthcare Majors to diversify your tech-heavy portfolio.")
-        elif universe_choice == 'Finance Leaders':
-            st.write("Consider adding assets from Tech Giants or Healthcare Majors to balance financial sector exposure.")
-        elif universe_choice == 'Healthcare Majors':
-            st.write("Consider adding assets from Tech Giants or Finance Leaders to create a more well-rounded portfolio.")
 
     optimize_button = st.button("Optimize Portfolio")
 
@@ -186,7 +195,7 @@ if __name__ == "__main__":
                 st.stop()
 
             optimizer = PortfolioOptimizer(
-                ticker_list, start_date, end_date, risk_free_rate
+                my_portfolio, start_date, end_date, risk_free_rate
             )
             optimizer.fetch_data()
 
