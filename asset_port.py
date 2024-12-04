@@ -142,10 +142,28 @@ if __name__ == "__main__":
             st.stop()
 
     # Display selected assets in 'My Portfolio'
-    my_portfolio = st.multiselect(
-        "My Portfolio:",
+    if 'my_portfolio' not in st.session_state:
+        st.session_state['my_portfolio'] = []
+
+    my_portfolio = st.session_state['my_portfolio']
+
+    add_to_portfolio = st.multiselect(
+        "Select assets to add to My Portfolio:",
         options=ticker_list,
-        default=ticker_list,
+        default=[],
+        help="Select assets to add them to your portfolio."
+    )
+
+    # Update the session state with new selections
+    if add_to_portfolio:
+        my_portfolio.extend([asset for asset in add_to_portfolio if asset not in my_portfolio])
+        st.session_state['my_portfolio'] = my_portfolio
+
+    # Display the updated 'My Portfolio'
+    st.multiselect(
+        "My Portfolio:",
+        options=my_portfolio,
+        default=my_portfolio,
         help="These are the assets you have selected for your portfolio."
     )
 
