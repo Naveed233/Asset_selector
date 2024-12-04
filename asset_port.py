@@ -2,13 +2,14 @@ import streamlit as st
 import yfinance as yf
 import numpy as np
 import pandas as pd
-import cvxpy as cp
 import matplotlib.pyplot as plt
 import io
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from scipy.optimize import minimize
+import plotly.express as px
 
-# Portfolio Optimizer with Asset Selection
+# Black-Litterman Optimizer
 class PortfolioOptimizer:
     def __init__(self, tickers, start_date, end_date, risk_free_rate=0.02):
         # Initialize with user-specified parameters
@@ -28,15 +29,13 @@ class PortfolioOptimizer:
         self.returns = data.pct_change().dropna()
 
     def denoise_returns(self):
-        # Reduce noise in returns data using Principal Component Analysis (PCA)
-        num_assets = len(self.returns.columns)
-        n_components = min(num_assets, len(self.returns))
-        pca = PCA(n_components=n_components)
+        # Apply PCA for denoising
+        pca = PCA(n_components=len(self.returns.columns))
         pca_returns = pca.fit_transform(self.returns)
-        denoised_returns = pca.inverse_transform(pca_returns)
-        self.returns = pd.DataFrame(
-            denoised_returns, index=self.returns.index, columns=self.returns.columns
-        )
+        explained_variance = pca.explained_variance_ratio_.cumsum()
+        num_components = np.argmax(explained_variance >= 0.95) + 1
+        denoised_returns = pca.inverse_transform(pca_returns[:, :num_components])
+        self.returns = pd.DataFrame(denoised_returns, index=self.returns.index, columns=self.returns.columns)
 
     def cluster_assets(self, n_clusters=3):
         # Group similar assets into clusters using KMeans clustering
@@ -46,53 +45,43 @@ class PortfolioOptimizer:
 
     def portfolio_stats(self, weights):
         # Calculate portfolio return, volatility, and Sharpe ratio
-        weights = np.array(weights).flatten()
-        num_assets = len(self.returns.columns)
-        if weights.shape[0] != num_assets:
-            raise ValueError(
-                f"Weights dimension {weights.shape[0]} does not match number of assets {num_assets}"
-            )
-
-        mean_returns = self.returns.mean().values
-        cov_matrix = self.returns.cov().values * 252  # Annualize covariance
-        portfolio_return = np.dot(weights, mean_returns) * 252
-        portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+        portfolio_return = np.dot(weights, self.returns.mean()) * 252
+        portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(self.returns.cov() * 252, weights)))
         sharpe_ratio = (portfolio_return - self.risk_free_rate) / portfolio_volatility
         return portfolio_return, portfolio_volatility, sharpe_ratio
 
-    def min_volatility_with_selection(self, target_return):
-        # Optimize portfolio to achieve minimum volatility
+    def min_volatility(self, target_return):
         num_assets = len(self.returns.columns)
-        mean_returns = self.returns.mean().values * 252  # Annualized returns
-        cov_matrix = self.returns.cov().values * 252  # Annualized covariance
+        constraints = ({'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1},
+                       {'type': 'eq', 'fun': lambda weights: self.portfolio_stats(weights)[0] - target_return})
+        bounds = tuple((0, 1) for _ in range(num_assets))
+        init_guess = num_assets * [1. / num_assets]
+        result = minimize(lambda weights: self.portfolio_stats(weights)[1],
+                          init_guess, method='SLSQP', bounds=bounds, constraints=constraints)
+        return result.x
 
-        # Define variables
-        w = cp.Variable(num_assets)
+    def generate_efficient_frontier(self, target_returns):
+        efficient_portfolios = []
+        for ret in target_returns:
+            weights = self.min_volatility(ret)
+            portfolio_return, portfolio_volatility, _ = self.portfolio_stats(weights)
+            efficient_portfolios.append((portfolio_volatility, portfolio_return))
+        return np.array(efficient_portfolios)
 
-        # Objective: Minimize portfolio variance
-        portfolio_variance = cp.quad_form(w, cov_matrix)
-        objective = cp.Minimize(portfolio_variance)
+    def monte_carlo_simulation(self, num_simulations=10000):
+        num_assets = len(self.returns.columns)
+        results = np.zeros((3, num_simulations))
+        weights_record = []
 
-        # Constraints
-        constraints = [
-            cp.sum(w) == 1,  # Weights sum to 1
-            w >= 0,          # No short selling
-            w @ mean_returns >= target_return,  # Target return constraint
-        ]
+        for i in range(num_simulations):
+            weights = np.random.dirichlet(np.ones(num_assets), size=1).flatten()
+            portfolio_return, portfolio_volatility, sharpe_ratio = self.portfolio_stats(weights)
+            results[0, i] = portfolio_volatility
+            results[1, i] = portfolio_return
+            results[2, i] = sharpe_ratio
+            weights_record.append(weights)
 
-        problem = cp.Problem(objective, constraints)
-
-        # Solve the problem
-        try:
-            problem.solve(solver=cp.ECOS_BB)
-        except cp.error.SolverError:
-            raise ValueError("Optimization did not converge. Try adjusting the target return.")
-
-        if problem.status != cp.OPTIMAL:
-            raise ValueError("Optimization did not find an optimal solution.")
-
-        optimal_weights = w.value
-        return optimal_weights
+        return results, weights_record
 
     def backtest_portfolio(self, weights):
         # Evaluate portfolio performance over historical data
@@ -102,11 +91,9 @@ class PortfolioOptimizer:
 
 # Streamlit App to interact with the user
 if __name__ == "__main__":
-    st.title(
-        "Portfolio Optimization with Asset Selection"
-    )
+    st.title("Portfolio Optimization with Advanced Features")
 
-    # User inputs
+    # User Inputs
     universe_options = {
         'Tech Giants': ['AAPL - Apple', 'MSFT - Microsoft', 'GOOGL - Alphabet', 'AMZN - Amazon', 'META - Meta Platforms', 'TSLA - Tesla', 'NVDA - NVIDIA', 'ADBE - Adobe', 'INTC - Intel', 'CSCO - Cisco'],
         'Finance Leaders': ['JPM - JPMorgan Chase', 'BAC - Bank of America', 'WFC - Wells Fargo', 'C - Citigroup', 'GS - Goldman Sachs', 'MS - Morgan Stanley', 'AXP - American Express', 'BLK - BlackRock', 'SCHW - Charles Schwab', 'USB - U.S. Bancorp'],
@@ -114,26 +101,16 @@ if __name__ == "__main__":
         'Custom': []
     }
 
-    universe_choice = st.selectbox(
-        "Select an asset universe:",
-        options=list(universe_options.keys()),
-        index=0
-    )
+    universe_choice = st.selectbox("Select an asset universe:", options=list(universe_options.keys()), index=0)
 
     if universe_choice == 'Custom':
-        custom_tickers = st.text_input(
-            "Enter stock tickers separated by commas (e.g., AAPL, MSFT, TSLA):"
-        )
+        custom_tickers = st.text_input("Enter stock tickers separated by commas (e.g., AAPL, MSFT, TSLA):")
         ticker_list = [ticker.strip() for ticker in custom_tickers.split(",") if ticker.strip()]
         if not ticker_list:
             st.error("Please enter at least one ticker.")
             st.stop()
     else:
-        ticker_list = st.multiselect(
-            "Select assets from the chosen universe:",
-            options=universe_options[universe_choice],
-            default=universe_options[universe_choice]
-        )
+        ticker_list = st.multiselect("Select assets from the chosen universe:", options=universe_options[universe_choice], default=universe_options[universe_choice])
         if not ticker_list:
             st.error("Please select at least one asset.")
             st.stop()
@@ -144,12 +121,7 @@ if __name__ == "__main__":
 
     my_portfolio = st.session_state['my_portfolio']
 
-    add_to_portfolio = st.multiselect(
-        "Select assets to add to My Portfolio:",
-        options=ticker_list,
-        default=[],
-        help="Select assets to add them to your portfolio."
-    )
+    add_to_portfolio = st.multiselect("Select assets to add to My Portfolio:", options=ticker_list, default=[], help="Select assets to add them to your portfolio.")
 
     # Update the session state with new selections
     if add_to_portfolio:
@@ -157,12 +129,7 @@ if __name__ == "__main__":
         st.session_state['my_portfolio'] = my_portfolio
 
     # Display the updated 'My Portfolio'
-    st.multiselect(
-        "My Portfolio:",
-        options=my_portfolio,
-        default=my_portfolio,
-        help="These are the assets you have selected for your portfolio."
-    )
+    st.multiselect("My Portfolio:", options=my_portfolio, default=my_portfolio, help="These are the assets you have selected for your portfolio.")
 
     # Add recommend assets button under 'My Portfolio'
     recommend_button = st.button("Recommend Assets")
@@ -178,23 +145,13 @@ if __name__ == "__main__":
 
     start_date = st.date_input("Start date", value=pd.to_datetime("2018-01-01"), max_value=pd.to_datetime("today"))
     end_date = st.date_input("End date", value=pd.to_datetime("2023-12-31"), max_value=pd.to_datetime("today"))
-    risk_free_rate = (
-        st.number_input(
-            "Enter the risk-free rate (in %):",
-            value=2.0,
-            step=0.1,
-        )
-        / 100
-    )
+    risk_free_rate = st.number_input("Enter the risk-free rate (in %):", value=2.0, step=0.1) / 100
 
     # Add info button for why only historical data can be used
     if st.button("Why can I only use historical data?"):
         st.info("Portfolio optimizers use historical data as a proxy to estimate key inputs like expected returns, risks (volatility), and correlations between assets. This approach is based on the assumption that past performance and relationships can provide insights into future behavior.")
 
-    strategy = st.radio(
-        "Select your strategy:",
-        ("Risk-Free Safe Approach", "Profit-Aggressive Approach")
-    )
+    strategy = st.radio("Select your strategy:", ("Risk-Free Safe Approach", "Profit-Aggressive Approach"))
 
     optimize_button = st.button("Optimize Portfolio")
 
@@ -205,9 +162,7 @@ if __name__ == "__main__":
                 st.error("Start date must be earlier than end date.")
                 st.stop()
 
-            optimizer = PortfolioOptimizer(
-                my_portfolio, start_date, end_date, risk_free_rate
-            )
+            optimizer = PortfolioOptimizer(my_portfolio, start_date, end_date, risk_free_rate)
             optimizer.fetch_data()
 
             # Apply selected strategy
@@ -231,50 +186,25 @@ if __name__ == "__main__":
                 max_return += 5
 
             # Define the target return slider dynamically
-            specific_target_return = (
-                st.slider(
-                    "Select a specific target return (in %)",
-                    min_value=round(min_return, 2),
-                    max_value=round(max_return, 2),
-                    value=round(min_return, 2),
-                    step=0.1,
-                )
-                / 100
-            )
+            specific_target_return = st.slider("Select a specific target return (in %)", min_value=round(min_return, 2), max_value=round(max_return, 2), value=round(min_return, 2), step=0.1) / 100
 
             # Adjust the target return validation
             tolerance = 1e-6
-            if (
-                specific_target_return < (min_return / 100 - tolerance)
-                or specific_target_return > (max_return / 100 + tolerance)
-            ):
-                st.error(
-                    f"The target return must be between {min_return:.2f}% and {max_return:.2f}%."
-                )
+            if specific_target_return < (min_return / 100 - tolerance) or specific_target_return > (max_return / 100 + tolerance):
+                st.error(f"The target return must be between {min_return:.2f}% and {max_return:.2f}%.")
                 st.stop()
 
             # Optimize the portfolio for the user's specific target return
-            optimal_weights = optimizer.min_volatility_with_selection(
-                specific_target_return
-            )
+            optimal_weights = optimizer.min_volatility(specific_target_return)
 
             # Get portfolio stats
-            portfolio_return, portfolio_volatility, sharpe_ratio = optimizer.portfolio_stats(
-                optimal_weights
-            )
+            portfolio_return, portfolio_volatility, sharpe_ratio = optimizer.portfolio_stats(optimal_weights)
 
             # Display the optimal portfolio allocation
-            allocation = pd.DataFrame(
-                {
-                    "Asset": optimizer.returns.columns,
-                    "Weight": optimal_weights.round(4),
-                }
-            )
+            allocation = pd.DataFrame({"Asset": optimizer.returns.columns, "Weight": optimal_weights.round(4)})
             allocation = allocation[allocation['Weight'] > 0]
 
-            st.subheader(
-                f"Optimal Portfolio Allocation (Target Return: {specific_target_return*100:.2f}%)"
-            )
+            st.subheader(f"Optimal Portfolio Allocation (Target Return: {specific_target_return*100:.2f}%)")
             st.write(allocation)
 
             # Show portfolio performance metrics
@@ -288,11 +218,7 @@ if __name__ == "__main__":
                 st.subheader("Backtest Portfolio Performance")
                 cumulative_returns = optimizer.backtest_portfolio(optimal_weights)
                 fig, ax = plt.subplots(figsize=(10, 6))
-                plt.plot(
-                    cumulative_returns.index,
-                    cumulative_returns.values,
-                    label="Portfolio Cumulative Returns",
-                )
+                plt.plot(cumulative_returns.index, cumulative_returns.values, label="Portfolio Cumulative Returns")
                 plt.xlabel("Date")
                 plt.ylabel("Cumulative Return")
                 plt.title("Portfolio Backtesting Performance")
