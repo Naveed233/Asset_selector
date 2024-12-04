@@ -60,15 +60,14 @@ class PortfolioOptimizer:
         sharpe_ratio = (portfolio_return - self.risk_free_rate) / portfolio_volatility
         return portfolio_return, portfolio_volatility, sharpe_ratio
 
-    def min_volatility_with_selection(self, target_return, num_assets_to_select):
-        # Optimize portfolio to achieve minimum volatility with asset selection
+    def min_volatility_with_selection(self, target_return):
+        # Optimize portfolio to achieve minimum volatility
         num_assets = len(self.returns.columns)
         mean_returns = self.returns.mean().values * 252  # Annualized returns
         cov_matrix = self.returns.cov().values * 252  # Annualized covariance
 
         # Define variables
         w = cp.Variable(num_assets)
-        y = cp.Variable(num_assets, boolean=True)
 
         # Objective: Minimize portfolio variance
         portfolio_variance = cp.quad_form(w, cov_matrix)
@@ -78,8 +77,6 @@ class PortfolioOptimizer:
         constraints = [
             cp.sum(w) == 1,  # Weights sum to 1
             w >= 0,          # No short selling
-            w <= y,          # If y_i is 0, w_i must be 0
-            cp.sum(y) == num_assets_to_select,  # Select exactly x assets
             w @ mean_returns >= target_return,  # Target return constraint
         ]
 
@@ -89,7 +86,7 @@ class PortfolioOptimizer:
         try:
             problem.solve(solver=cp.ECOS_BB)
         except cp.error.SolverError:
-            raise ValueError("Optimization did not converge. Try adjusting the target return or number of assets.")
+            raise ValueError("Optimization did not converge. Try adjusting the target return.")
 
         if problem.status != cp.OPTIMAL:
             raise ValueError("Optimization did not find an optimal solution.")
@@ -179,8 +176,8 @@ if __name__ == "__main__":
         elif universe_choice == 'Healthcare Majors':
             st.write("Consider adding assets from Tech Giants or Finance Leaders to create a more well-rounded portfolio.")
 
-    start_date = st.date_input("Start date", value=pd.to_datetime("2018-01-01"))
-    end_date = st.date_input("End date", value=pd.to_datetime("2023-12-31"))
+    start_date = st.date_input("Start date", value=pd.to_datetime("2018-01-01"), max_value=pd.to_datetime("today"))
+    end_date = st.date_input("End date", value=pd.to_datetime("2023-12-31"), max_value=pd.to_datetime("today"))
     risk_free_rate = (
         st.number_input(
             "Enter the risk-free rate (in %):",
@@ -190,13 +187,9 @@ if __name__ == "__main__":
         / 100
     )
 
-    num_assets_to_select = st.number_input(
-        "Number of assets to include in the portfolio:",
-        min_value=1,
-        max_value=len(my_portfolio),
-        value=3,
-        step=1
-    )
+    # Add info button for why only historical data can be used
+    if st.button("Why can I only use historical data?"):
+        st.info("Portfolio optimizers use historical data as a proxy to estimate key inputs like expected returns, risks (volatility), and correlations between assets. This approach is based on the assumption that past performance and relationships can provide insights into future behavior.")
 
     strategy = st.radio(
         "Select your strategy:",
@@ -260,9 +253,9 @@ if __name__ == "__main__":
                 )
                 st.stop()
 
-            # Optimize the portfolio for the user's specific target return and asset count
+            # Optimize the portfolio for the user's specific target return
             optimal_weights = optimizer.min_volatility_with_selection(
-                specific_target_return, num_assets_to_select
+                specific_target_return
             )
 
             # Get portfolio stats
