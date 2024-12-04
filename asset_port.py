@@ -110,7 +110,6 @@ if __name__ == "__main__":
     )
 
     # User inputs
-    # Define a larger asset universe (e.g., S&P 100 tickers)
     universe_options = {
         'Tech Giants': ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'ADBE', 'INTC', 'CSCO'],
         'Finance Leaders': ['JPM', 'BAC', 'WFC', 'C', 'GS', 'MS', 'AXP', 'BLK', 'SCHW', 'USB'],
@@ -133,7 +132,14 @@ if __name__ == "__main__":
             st.error("Please enter at least one ticker.")
             st.stop()
     else:
-        ticker_list = universe_options[universe_choice]
+        ticker_list = st.multiselect(
+            "Select assets from the chosen universe:",
+            options=universe_options[universe_choice],
+            default=universe_options[universe_choice]
+        )
+        if not ticker_list:
+            st.error("Please select at least one asset.")
+            st.stop()
 
     start_date = st.date_input("Start date", value=pd.to_datetime("2018-01-01"))
     end_date = st.date_input("End date", value=pd.to_datetime("2023-12-31"))
@@ -154,6 +160,22 @@ if __name__ == "__main__":
         step=1
     )
 
+    strategy = st.radio(
+        "Select your strategy:",
+        ("Risk-Free Safe Approach", "Profit-Aggressive Approach")
+    )
+
+    recommend_button = st.button("Recommend Assets")
+
+    if recommend_button:
+        st.write("Based on your selected assets, a balanced and diversified portfolio could include a mix of assets from different sectors to minimize risk while maximizing potential gains.")
+        if universe_choice == 'Tech Giants':
+            st.write("Consider adding assets from Finance Leaders or Healthcare Majors to diversify your tech-heavy portfolio.")
+        elif universe_choice == 'Finance Leaders':
+            st.write("Consider adding assets from Tech Giants or Healthcare Majors to balance financial sector exposure.")
+        elif universe_choice == 'Healthcare Majors':
+            st.write("Consider adding assets from Tech Giants or Finance Leaders to create a more well-rounded portfolio.")
+
     optimize_button = st.button("Optimize Portfolio")
 
     if optimize_button:
@@ -168,8 +190,12 @@ if __name__ == "__main__":
             )
             optimizer.fetch_data()
 
-            # Apply denoising to the returns data
-            optimizer.denoise_returns()
+            # Apply selected strategy
+            if strategy == "Risk-Free Safe Approach":
+                optimizer.denoise_returns()
+                clusters = optimizer.cluster_assets()
+            elif strategy == "Profit-Aggressive Approach":
+                clusters = optimizer.cluster_assets()
 
             # Calculate annualized returns using geometric mean
             cumulative_returns = (1 + optimizer.returns).prod() - 1
@@ -237,20 +263,21 @@ if __name__ == "__main__":
             st.write(f"Annual Volatility (Risk): {portfolio_volatility * 100:.2f}%")
             st.write(f"Sharpe Ratio: {sharpe_ratio:.2f}")
 
-            # Backtest the portfolio and display cumulative returns
-            st.subheader("Backtest Portfolio Performance")
-            cumulative_returns = optimizer.backtest_portfolio(optimal_weights)
-            fig, ax = plt.subplots(figsize=(10, 6))
-            plt.plot(
-                cumulative_returns.index,
-                cumulative_returns.values,
-                label="Portfolio Cumulative Returns",
-            )
-            plt.xlabel("Date")
-            plt.ylabel("Cumulative Return")
-            plt.title("Portfolio Backtesting Performance")
-            plt.legend()
-            st.pyplot(fig)
+            # Backtest the portfolio and display cumulative returns if aggressive strategy is chosen
+            if strategy == "Profit-Aggressive Approach":
+                st.subheader("Backtest Portfolio Performance")
+                cumulative_returns = optimizer.backtest_portfolio(optimal_weights)
+                fig, ax = plt.subplots(figsize=(10, 6))
+                plt.plot(
+                    cumulative_returns.index,
+                    cumulative_returns.values,
+                    label="Portfolio Cumulative Returns",
+                )
+                plt.xlabel("Date")
+                plt.ylabel("Cumulative Return")
+                plt.title("Portfolio Backtesting Performance")
+                plt.legend()
+                st.pyplot(fig)
 
             # Show a bar chart of the portfolio allocation
             st.subheader("Portfolio Allocation")
@@ -258,17 +285,6 @@ if __name__ == "__main__":
             allocation.set_index("Asset").plot(kind="bar", y="Weight", legend=False, ax=ax)
             plt.ylabel("Weight")
             st.pyplot(fig)
-
-            # Provide an option to download the portfolio allocation
-            st.subheader("Download Portfolio Allocation and Metrics")
-            buffer = io.StringIO()
-            allocation.to_csv(buffer, index=False)
-            st.download_button(
-                label="Download Portfolio Allocation (CSV)",
-                data=buffer.getvalue(),
-                file_name="portfolio_allocation.csv",
-                mime="text/csv",
-            )
 
         except Exception as e:
             st.error(f"An error occurred: {e}")
