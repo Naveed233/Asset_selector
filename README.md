@@ -1,100 +1,91 @@
-Portfolio Optimization App
+Here is the properly formatted README file with clear heading distinctions:
 
-Overview
+```markdown
+## Portfolio Optimization App
 
-This project is a Streamlit-based Portfolio Optimization Web App that enables users to:
+### Overview
 
-Fetch historical stock data from Yahoo Finance.
+This project is a **Streamlit-based Portfolio Optimization Web App** that enables users to:
 
-Perform portfolio optimization using Sharpe Ratio Maximization and Risk Parity.
+- Fetch historical stock data from Yahoo Finance.
+- Perform **portfolio optimization** using **Sharpe Ratio Maximization** and **Risk Parity**.
+- Analyze portfolio **risk metrics** including **VaR, CVaR, Maximum Drawdown, and HHI**.
+- Cluster stocks using **KMeans Clustering** and visualize them with **PCA**.
+- Fetch **latest news** related to selected stocks from **NewsAPI**.
+- Display optimized **portfolio weights**, **risk metrics**, and **asset clusters** with interactive **Plotly charts**.
 
-Analyze portfolio risk metrics including VaR, CVaR, Maximum Drawdown, and HHI.
+### Features
 
-Cluster stocks using KMeans Clustering and visualize them with PCA.
+#### 1. Data Fetching & Processing
 
-Fetch latest news related to selected stocks from NewsAPI.
+- Retrieves **adjusted closing prices** for user-specified stocks.
+- Computes **daily returns**.
+- Applies **Principal Component Analysis (PCA)** to denoise returns.
 
-Display optimized portfolio weights, risk metrics, and asset clusters with interactive Plotly charts.
+#### 2. Portfolio Optimization
 
-Features
+- **Sharpe Ratio Maximization:** Finds the optimal allocation that maximizes risk-adjusted returns.
+- **Risk Parity:** Allocates weights so that all assets contribute equally to portfolio risk.
 
-1. Data Fetching & Processing
+#### 3. Risk Metrics Calculation
 
-Retrieves adjusted closing prices for user-specified stocks.
+- **Annual Return & Volatility**
+- **Sharpe Ratio**
+- **Value at Risk (VaR)**
+- **Conditional Value at Risk (CVaR)**
+- **Maximum Drawdown (MDD)**
+- **Herfindahl-Hirschman Index (HHI) for Diversification**
 
-Computes daily returns.
+#### 4. Stock Clustering & Visualization
 
-Applies Principal Component Analysis (PCA) to denoise returns.
+- **KMeans clustering** groups stocks based on return profiles.
+- **PCA visualization** shows asset groupings.
 
-2. Portfolio Optimization
+#### 5. News Fetching
 
-Sharpe Ratio Maximization: Finds the optimal allocation that maximizes risk-adjusted returns.
+- Fetches **top 3 recent news articles** for each stock from **NewsAPI**.
 
-Risk Parity: Allocates weights so that all assets contribute equally to portfolio risk.
+#### 6. Streamlit UI
 
-3. Risk Metrics Calculation
+- **User Inputs:** Stock tickers, date range, risk-free rate, optimization method.
+- **Interactive Visuals:**
+  - **Portfolio weights (Pie Chart)**
+  - **Risk Metrics (Bar Chart)**
+  - **Asset Clusters (Scatter Plot)**
+- **Error Handling:** Checks for missing data and invalid tickers.
 
-Annual Return & Volatility
+### Installation
 
-Sharpe Ratio
-
-Value at Risk (VaR)
-
-Conditional Value at Risk (CVaR)
-
-Maximum Drawdown (MDD)
-
-Herfindahl-Hirschman Index (HHI) for Diversification
-
-4. Stock Clustering & Visualization
-
-KMeans clustering groups stocks based on return profiles.
-
-PCA visualization shows asset groupings.
-
-5. News Fetching
-
-Fetches top 3 recent news articles for each stock from NewsAPI.
-
-6. Streamlit UI
-
-User Inputs: Stock tickers, date range, risk-free rate, optimization method.
-
-Interactive Visuals:
-
-Portfolio weights (Pie Chart)
-
-Risk Metrics (Bar Chart)
-
-Asset Clusters (Scatter Plot)
-
-Error Handling: Checks for missing data and invalid tickers.
-
-Installation
-
-Prerequisites
+#### Prerequisites
 
 Ensure you have Python installed along with the required dependencies.
 
-Step 1: Clone the Repository
+#### Step 1: Clone the Repository
 
+```bash
 git clone https://github.com/yourusername/portfolio-optimization-app.git
 cd portfolio-optimization-app
+```
 
-Step 2: Install Dependencies
+#### Step 2: Install Dependencies
 
+```bash
 pip install -r requirements.txt
+```
 
-Step 3: Set Up NewsAPI Key
+#### Step 3: Set Up NewsAPI Key
 
-Replace YOUR_NEWSAPI_KEY in the PortfolioOptimizer class with your NewsAPI key.
+Replace `YOUR_NEWSAPI_KEY` in the `PortfolioOptimizer` class with your NewsAPI key.
 
-Step 4: Run the App
+#### Step 4: Run the App
 
+```bash
 streamlit run app.py
+```
 
-Dependencies
+### Dependencies
 
+```txt
 streamlit
 yfinance
 pandas
@@ -103,33 +94,31 @@ scipy
 plotly
 scikit-learn
 requests
+```
 
-Usage
+### Usage
 
-Enter Stock Symbols (comma-separated, e.g., AAPL, MSFT, TSLA).
+1. **Enter Stock Symbols** (comma-separated, e.g., `AAPL, MSFT, TSLA`).
+2. **Select Start & End Date** for historical data.
+3. **Input Risk-Free Rate** (default: 2%).
+4. **Choose Optimization Method**: `Maximize Sharpe Ratio` or `Risk Parity`.
+5. **Click 'Optimize Portfolio'** to generate results.
+6. **View results**: Portfolio weights, risk metrics, stock clusters, and news.
 
-Select Start & End Date for historical data.
+### Future Enhancements
 
-Input Risk-Free Rate (default: 2%).
+- Integrate **Monte Carlo simulations** for stress testing.
+- Add **customizable risk constraints**.
+- Enhance **news sentiment analysis**.
 
-Choose Optimization Method: Maximize Sharpe Ratio or Risk Parity.
-
-Click 'Optimize Portfolio' to generate results.
-
-View results: Portfolio weights, risk metrics, stock clusters, and news.
-
-Future Enhancements
-
-Integrate Monte Carlo simulations for stress testing.
-
-Add customizable risk constraints.
-
-Enhance news sentiment analysis.
-
-License
+### License
 
 This project is open-source under the MIT License.
 
-Author
-Maqbool Naveed Ahmed
-[GitHub Profile](https://github.com/Naveed233/)
+### Author
+
+**Maqbool Naveed**  
+[GitHub Profile](https://github.com/Naveed233)
+```
+
+You can copy and paste this directly into your README file. Let me know if you need further modifications! 🚀
