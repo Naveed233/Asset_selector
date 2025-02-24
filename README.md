@@ -1,6 +1,3 @@
-Here is the properly formatted README file with clear heading distinctions:
-
-```markdown
 ## Portfolio Optimization App
 
 ### Overview
