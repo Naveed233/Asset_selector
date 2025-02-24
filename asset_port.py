@@ -66,7 +66,7 @@ class PortfolioOptimizer:
         - news_data (dict): Dictionary with tickers as keys and list of articles as values.
         """
         news_data = {}
-        API_KEY = 'YOUR_NEWSAPI_KEY'  # Replace with your NewsAPI key
+        API_KEY = 'c1b710a8638d4e55ab8ec4415e97388a'  # Replace with your NewsAPI key
         for ticker in self.tickers:
             url = f"https://newsapi.org/v2/everything?q={ticker}&sortBy=publishedAt&apiKey={API_KEY}"
             response = requests.get(url)
