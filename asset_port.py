@@ -272,7 +272,7 @@ if st.sidebar.button("Optimize Portfolio"):
                 analyzer = SentimentIntensityAnalyzer()
 
                 # Display News for Each Ticker with Sentiment Icons
-                st.header("📰 Latest News")
+                st.header("📰 Latest News - (Sentiment Analysis)")
                 for ticker, articles in news.items():
                     if articles:
                         st.subheader(f"Top News for {ticker}")
