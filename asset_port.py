@@ -7,13 +7,17 @@ import plotly.express as px
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import requests
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+# Download VADER lexicon (only needed on first run)
+nltk.download('vader_lexicon')
 
 # Portfolio Optimizer Class
 class PortfolioOptimizer:
     def __init__(self, tickers, start_date, end_date, risk_free_rate=0.02):
         """
         Initializes the PortfolioOptimizer with given tickers, date range, and risk-free rate.
-
         Parameters:
         - tickers (str): Comma-separated stock tickers.
         - start_date (str or datetime): Start date for historical data.
@@ -34,7 +38,7 @@ class PortfolioOptimizer:
         if data.empty:
             st.error("No data fetched. Please check the tickers and date range.")
             return
-    
+
         # Check if data has MultiIndex columns (multiple tickers) or single-level columns (single ticker)
         if isinstance(data.columns, pd.MultiIndex):
             # If "Adj Close" is available, use it; otherwise fallback to "Close"
@@ -54,14 +58,12 @@ class PortfolioOptimizer:
             else:
                 st.error("Neither 'Adj Close' nor 'Close' data available.")
                 return
-    
-        self.returns = price_data.pct_change().dropna()
 
+        self.returns = price_data.pct_change().dropna()
 
     def fetch_news(self):
         """
         Fetches the top 3 latest news articles for each ticker using NewsAPI.
-
         Returns:
         - news_data (dict): Dictionary with tickers as keys and list of articles as values.
         """
@@ -91,10 +93,8 @@ class PortfolioOptimizer:
     def cluster_assets(self, n_clusters=3):
         """
         Clusters assets based on their return profiles using KMeans.
-
         Parameters:
         - n_clusters (int): Number of clusters.
-
         Returns:
         - clusters (ndarray): Cluster labels for each asset.
         """
@@ -105,10 +105,8 @@ class PortfolioOptimizer:
     def portfolio_stats(self, weights):
         """
         Calculates annual return, annual volatility, and Sharpe ratio for the portfolio.
-
         Parameters:
         - weights (ndarray): Portfolio weights.
-
         Returns:
         - annual_return (float): Annualized return.
         - annual_volatility (float): Annualized volatility.
@@ -122,11 +120,9 @@ class PortfolioOptimizer:
     def value_at_risk(self, weights, confidence_level=0.95):
         """
         Calculates the Value at Risk (VaR) for the portfolio.
-
         Parameters:
         - weights (ndarray): Portfolio weights.
         - confidence_level (float): Confidence level for VaR.
-
         Returns:
         - var (float): Value at Risk.
         """
@@ -137,11 +133,9 @@ class PortfolioOptimizer:
     def conditional_value_at_risk(self, weights, confidence_level=0.95):
         """
         Calculates the Conditional Value at Risk (CVaR) for the portfolio.
-
         Parameters:
         - weights (ndarray): Portfolio weights.
         - confidence_level (float): Confidence level for CVaR.
-
         Returns:
         - cvar (float): Conditional Value at Risk.
         """
@@ -153,10 +147,8 @@ class PortfolioOptimizer:
     def maximum_drawdown(self, weights):
         """
         Calculates the Maximum Drawdown for the portfolio.
-
         Parameters:
         - weights (ndarray): Portfolio weights.
-
         Returns:
         - max_drawdown (float): Maximum drawdown.
         """
@@ -170,10 +162,8 @@ class PortfolioOptimizer:
     def herfindahl_hirschman_index(self, weights):
         """
         Calculates the Herfindahl-Hirschman Index (HHI) to measure portfolio diversification.
-
         Parameters:
         - weights (ndarray): Portfolio weights.
-
         Returns:
         - hhi (float): Herfindahl-Hirschman Index.
         """
@@ -182,10 +172,8 @@ class PortfolioOptimizer:
     def sharpe_ratio_objective(self, weights):
         """
         Objective function to maximize the Sharpe Ratio.
-
         Parameters:
         - weights (ndarray): Portfolio weights.
-
         Returns:
         - negative_sharpe (float): Negative Sharpe Ratio (since we minimize).
         """
@@ -195,7 +183,6 @@ class PortfolioOptimizer:
     def optimize_sharpe_ratio(self):
         """
         Optimizes portfolio weights to maximize the Sharpe Ratio.
-
         Returns:
         - opt_weights (ndarray): Optimized portfolio weights.
         """
@@ -212,10 +199,8 @@ class PortfolioOptimizer:
     def risk_parity_objective(self, weights):
         """
         Objective function to achieve Risk Parity (equal risk contribution).
-
         Parameters:
         - weights (ndarray): Portfolio weights.
-
         Returns:
         - objective (float): Sum of squared differences from equal risk contribution.
         """
@@ -229,7 +214,6 @@ class PortfolioOptimizer:
     def optimize_risk_parity(self):
         """
         Optimizes portfolio weights to achieve Risk Parity.
-
         Returns:
         - opt_weights (ndarray): Optimized portfolio weights.
         """
@@ -283,14 +267,27 @@ if st.sidebar.button("Optimize Portfolio"):
 
                 # Fetch News
                 news = optimizer.fetch_news()
+                
+                # Initialize sentiment analyzer
+                analyzer = SentimentIntensityAnalyzer()
 
-                # Display News for Each Ticker
+                # Display News for Each Ticker with Sentiment Icons
                 st.header("📰 Latest News")
                 for ticker, articles in news.items():
                     if articles:
                         st.subheader(f"Top News for {ticker}")
                         for article in articles:
-                            st.markdown(f"• [{article['title']}]({article['url']}) - *{article['source']['name']}*")
+                            title = article['title']
+                            # Analyze sentiment based on the article title
+                            sentiment = analyzer.polarity_scores(title)
+                            compound = sentiment['compound']
+                            if compound >= 0.05:
+                                icon = "🟢⬆️"  # Good news
+                            elif compound <= -0.05:
+                                icon = "🔴⬇️"  # Bad news
+                            else:
+                                icon = "🔵—"   # Neutral
+                            st.markdown(f"• {icon} [{title}]({article['url']}) - *{article['source']['name']}*")
                     else:
                         st.subheader(f"No recent news found for {ticker}.")
 
@@ -365,4 +362,3 @@ if st.sidebar.button("Optimize Portfolio"):
                 st.plotly_chart(cluster_fig)
 
                 st.success("Portfolio optimization completed successfully!")
-
