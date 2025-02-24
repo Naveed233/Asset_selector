@@ -30,8 +30,33 @@ class PortfolioOptimizer:
         """
         Fetches historical adjusted closing prices and computes daily returns.
         """
-        data = yf.download(self.tickers, start=self.start_date, end=self.end_date, progress=False)["Adj Close"]
-        self.returns = data.pct_change().dropna()
+        data = yf.download(self.tickers, start=self.start_date, end=self.end_date, progress=False)
+        if data.empty:
+            st.error("No data fetched. Please check the tickers and date range.")
+            return
+    
+        # Check if data has MultiIndex columns (multiple tickers) or single-level columns (single ticker)
+        if isinstance(data.columns, pd.MultiIndex):
+            # If "Adj Close" is available, use it; otherwise fallback to "Close"
+            if "Adj Close" in data.columns.get_level_values(0):
+                price_data = data["Adj Close"]
+            elif "Close" in data.columns.get_level_values(0):
+                price_data = data["Close"]
+            else:
+                st.error("Neither 'Adj Close' nor 'Close' data available.")
+                return
+        else:
+            # Single ticker data
+            if "Adj Close" in data.columns:
+                price_data = data["Adj Close"]
+            elif "Close" in data.columns:
+                price_data = data["Close"]
+            else:
+                st.error("Neither 'Adj Close' nor 'Close' data available.")
+                return
+    
+        self.returns = price_data.pct_change().dropna()
+
 
     def fetch_news(self):
         """
